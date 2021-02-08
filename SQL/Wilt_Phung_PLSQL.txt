@@ -1,0 +1,704 @@
+--11
+DECLARE 
+ 
+  v_titre film.titre%TYPE;
+  v_entree film.entree%TYPE;
+
+BEGIN
+  SELECT Max(entree) INTO v_entree FROM film;
+  SELECT titre INTO v_titre FROM film WHERE entree = v_entree;  
+  
+  Dbms_Output.put_line('Le film le plus populaire :');
+  Dbms_Output.put_line('Titre :' || v_titre);
+  Dbms_Output.put_line('Nombre entrees :' || v_entree);
+
+END;
+
+--12 (a et b)
+DECLARE
+  v_idfilm film.idfilm%TYPE;
+  v_titre  film.titre%TYPE;
+  v_moy NUMBER(2);
+  v_existe NUMBER(1);
+
+BEGIN
+  v_idfilm :=&idfilm;
+  SELECT Count(*) INTO v_existe FROM film WHERE idfilm=v_idfilm;
+
+  IF v_existe = 0 THEN
+  Dbms_Output.put_line('existe pas');
+  ELSE  
+
+
+  SELECT Avg(note) INTO v_moy FROM notation WHERE idfilm = v_idfilm;
+  SELECT titre INTO v_titre FROM film WHERE idfilm = v_idfilm;
+
+  IF v_moy >= 8 THEN
+      Dbms_Output.put_line('Titre :' || v_titre);
+      Dbms_Output.put_line('Très bon');
+  ELSE  IF v_moy >= 5 AND v_moy <= 7 THEN
+        Dbms_Output.put_line('Titre :' || v_titre);
+        Dbms_Output.put_line('Bon');
+      ELSE 
+            Dbms_Output.put_line('Titre :' || v_titre);
+            Dbms_Output.put_line('moyen');
+          END IF;
+       END IF;
+END IF;
+
+END;
+
+
+
+--13
+
+DECLARE
+
+ v_email internaute.email%TYPE;
+ v_nomint internaute.nomint%TYPE;
+ v_prenomint internaute.prenomint%TYPE;
+ v_paysint internaute.paysint%TYPE;
+ v_existe NUMBER(1);
+
+BEGIN
+
+ v_email :='&email';
+ v_nomint:='&nomint';
+ v_prenomint:='&prenomint';
+ v_paysint:='&paysint';
+
+ SELECT Count(*) INTO v_existe FROM internaute WHERE email = v_email;
+ IF v_existe = 0 THEN 
+    INSERT INTO internaute VALUES (v_email, v_nomint, v_prenomint, v_paysint);
+  ELSE 
+    Dbms_Output.put_line('internaute existe deja');
+  END IF;
+
+END;
+
+
+
+--21 v1
+
+
+DECLARE
+
+
+CURSOR v_film IS 
+            SELECT  titre, Avg(note) moy, Count(email) tot, entree
+            FROM Film INNER JOIN Notation ON film.idfilm = notation.idfilm
+            WHERE FILM.idfilm = notation.idfilm
+            GROUP BY Film.idfilm, titre, entree;
+
+BEGIN 
+FOR v_s IN v_film LOOP
+   IF v_s.entree > 1000000 THEN 
+
+  Dbms_Output.put_line('Titre :' || v_s.titre);
+  Dbms_Output.put_line('Moyenne :' || Round(v_s.moy,2));
+  Dbms_Output.put_line('Nb notes :' ||v_s.tot) ;
+  Dbms_Output.put_line('Succès');
+
+    ELSIF v_s.entree > 500000 AND v_s.entree < 1000000 THEN 
+
+      Dbms_Output.put_line('Titre :' || v_s.titre);
+      Dbms_Output.put_line('Moyenne :' || Round(v_s.moy,2));
+      Dbms_Output.put_line('Nb notes :' ||v_s.tot) ;
+      Dbms_Output.put_line('Très bon');
+
+      ELSE 
+
+        Dbms_Output.put_line('Titre :' || v_s.titre);
+        Dbms_Output.put_line('Moyenne :' || Round(v_s.moy,2));
+        Dbms_Output.put_line('Nb notes :' ||v_s.tot) ;
+        Dbms_Output.put_line('Honorable');
+        
+        END IF;
+
+  END LOOP;
+
+  END;
+
+
+
+--21 v2
+
+
+DECLARE
+
+CURSOR v_film IS 
+            SELECT  titre, Avg(note) moy, Count(email) tot, entree
+            FROM Film INNER JOIN Notation ON film.idfilm = notation.idfilm
+            WHERE FILM.idfilm = notation.idfilm
+            GROUP BY Film.idfilm, titre, entree;
+
+            
+v_titre film.titre%type;
+v_entree film.entree%type;
+v_moy NUMBER(4,2);
+v_tot NUMBER(2);
+
+
+BEGIN
+OPEN v_film; 
+FETCH v_film  INTO v_titre, v_moy, v_tot, v_entree;
+WHILE v_film%FOUND LOOP
+   IF v_entree > 1000000 THEN 
+
+  Dbms_Output.put_line('Titre :' || v_titre);
+  Dbms_Output.put_line('Moyenne :' || Round(v_moy,2));
+  Dbms_Output.put_line('Nb notes :' ||v_tot) ;
+  Dbms_Output.put_line('Succès');
+
+    ELSIF v_entree > 500000 AND v_entree < 1000000 THEN 
+
+      Dbms_Output.put_line('Titre :' || v_titre);
+      Dbms_Output.put_line('Moyenne :' || Round(v_moy,2));
+      Dbms_Output.put_line('Nb notes :' ||v_tot) ;
+      Dbms_Output.put_line('Très bon');
+
+      ELSE 
+
+        Dbms_Output.put_line('Titre :' || v_titre);
+        Dbms_Output.put_line('Moyenne :' || Round(v_moy,2));
+        Dbms_Output.put_line('Nb notes :' ||v_tot) ;
+        Dbms_Output.put_line('Honorable');
+        
+      END IF;
+      FETCH v_film  INTO v_titre, v_moy, v_tot, v_entree;
+
+    END LOOP;
+    CLOSE v_film;
+
+  END;
+
+--22 
+
+DECLARE
+
+CURSOR note_moy IS
+            SELECT * FROM film;
+
+v_moy NUMBER(4,2 );
+
+BEGIN 
+  FOR v_s IN note_moy LOOP
+  SELECT Avg(note) INTo v_moy FROM notation      WHERE idfilm=v_s.idfilm;
+  UPDATE film SET film.note_moyenne=v_moy
+  WHERE film.idfilm=v_s.idfilm;
+
+  END LOOP;
+ END;
+
+
+--23
+
+alter table internaute add (taux number(5,2));
+
+
+declare
+    cursor c_taux is select * from notation for update of taux;
+    v_mail varchar(40);
+    v_taux number (5,3);
+    v_max number(2);
+begin
+select max(count(note)) into v_max
+            from notation
+            group by email;
+for internaute_row in c_taux loop
+        v_email:=internaute_row.email;
+        select count(note) into v_taux
+                from notation
+                where email=v_mail;
+
+
+        update internaute set taux=(v_taux/v_max)*100 where current of c_internaute;
+    end loop;
+
+
+end;
+
+
+
+--31
+
+DECLARE
+
+    v_titre FILM.titre%type;
+    v_existe NUMBER(1);
+    cursor v_casting (p_film VARCHAR) is
+        select nom, prenom
+        from acteur INNER JOIN Jouer ON Acteur.idacteur = Jouer.idacteur
+                    INNER JOIN Film on Jouer.idfilm = Film.idfilm
+        where titre LIKE '%'||p_film||'%';
+
+begin
+
+    v_titre := :titre;
+    Select count(*) into v_existe from FILM WHERE titre like '%'||v_titre||'%';
+    IF v_existe >=1 then
+    for acteurs in v_casting(v_titre) loop
+        DBMS_OUTPUT.PUT_LINE(acteurs.nom||' '||acteurs.prenom);
+    end loop;
+    else
+        DBMS_OUTPUT.PUT_LINE('Film inexistant');
+    end if;
+
+end;
+
+
+
+--32
+DECLARE
+    v_email INTERNAUTE.email%type;
+    v_moy NUMBER(4,2);
+    v_existe NUMBER(1);
+    cursor note_internaute(p_email VARCHAR2) is
+        SELECT note, titre
+        FROM Notation INNER JOIN FILM on Notation.idfilm = FILM.idfilm
+        where email like p_email;
+
+
+BEGIN
+    v_email:= :email;
+    SELECT Avg(note) INTO v_moy FROM notation where email=v_email ;
+
+    Select count(*) into v_existe from Notation WHERE email like v_email;
+    IF v_existe >=1 then
+    for internautes in note_internaute(v_email) loop
+        DBMS_OUTPUT.PUT_LINE(internautes.note ||' '|| internautes.titre);
+
+    end loop;
+
+    DBMS_OUTPUT.PUT_LINE('Moyenne : '|| v_moy);
+    else
+        DBMS_OUTPUT.PUT_LINE('internaute inexistant');
+    end if;
+end;
+
+
+
+--41 
+
+DECLARE
+
+ v_email internaute.email%TYPE;
+ v_nomint internaute.nomint%TYPE;
+ v_prenomint internaute.prenomint%TYPE;
+ v_paysint internaute.paysint%TYPE;
+ v_existe NUMBER(1);
+
+
+
+
+BEGIN
+
+ v_email := :email;
+ v_nomint:= :nomint;
+ v_prenomint:=:prenomint;
+ v_paysint:= :paysint;
+
+
+    INSERT INTO Internaute VALUES (v_email, v_nomint, v_prenomint, v_paysint);
+
+
+    exception
+    when dup_val_on_index then
+        DBMS_OUTPUT.PUT_LINE('Erreur : internaute existe déjà');
+
+
+END;
+
+
+
+--42
+
+DECLARE
+
+    v_email internaute.email%TYPE;
+    v_idfilm film.idfilm%type;
+    v_note notation.note%type;
+    v_existe_film number(1);
+    v_existe_internaute number(1);
+
+    Except_Util exception;
+
+BEGIN
+
+    v_email := :email;
+    v_idfilm := :idfilm;
+    v_note := :note;
+
+    Select Count(*) into v_existe_internaute From internaute where v_email LIKE email;
+    Select Count(*) into v_existe_film from film where idfilm = v_idfilm;
+
+
+
+    IF v_existe_internaute =1 AND v_existe_film=1 THEN
+    INSERT INTO Notation Values (v_email, v_idfilm, v_note, sysdate);
+        ELSE
+            Raise Except_Util;
+    END IF ;
+
+    exception
+    when Except_Util then
+        DBMS_OUTPUT.PUT_LINE('Erreur : Internaute ou idfilm inexistant');
+    when dup_val_on_index then
+        DBMS_OUTPUT.PUT_LINE('Erreur : Notation déja présente');
+
+
+END;
+
+
+
+--51
+
+CREATE OR REPLACE
+
+FUNCTION moyenne(p_idfilm NUMBER) RETURN number
+    is
+    v_moy number(4,2);
+    begin
+                        select AVG(note) into v_moy from notation
+                        where idfilm = p_idfilm;
+
+            return v_moy;
+  end moyenne;
+
+
+SELECT idfilm from Film where moyenne(idfilm)>7;
+
+
+
+--52
+
+CREATE OR REPLACE
+PROCEDURE maj_note(p_idfilm number) IS
+
+begin
+    UPDATE Film SET note_moyenne=moyenne(p_idfilm) where idfilm=p_idfilm;
+
+end maj_note;
+
+
+DECLARE
+    v_idfilm film.idfilm%type;
+
+BEGIN
+    v_idfilm :=: idfilm;
+ -- note moyenne de 6.75 pour idfilm 1
+    INSERT into notation VALUES('Lilian.Wilt@hotmail.com',1, 8, sysdate);
+ -- test pour idfilm 1
+    maj_note(v_idfilm);
+
+end;
+
+-- Select permettant de constater la MàJ, moyenne passée de 6.75 à 7 pour idfilm 1
+select * from film;
+
+-- Delete permettant de supprimer la valeur permettant de tester le fonctionnement de la MàJ
+DELETE FROM NOTATION WHERE email like 'Lilian%' and idfilm=1;
+
+-- Update permettant de remettre à jour la moyenne de idfilm 1 après suppression dans notation
+ UPDATE Film SET note_moyenne=moyenne(idfilm) where idfilm=1;
+
+-- Repassage de la moyenne à 6.75 constaté
+select * from film;
+
+
+
+--53
+CREATE OR REPLACE
+PROCEDURE ajout_internaute(p_email VARCHAR2, p_idfilm number, p_note number) is
+
+begin
+    INSERT INTO Notation VALUES (p_email, p_idfilm, p_note, sysdate);
+
+end ajout_internaute;
+
+DECLARE
+    v_email internaute.email%type;
+    v_idfilm film.idfilm%type;
+    v_note notation.note%type;
+    v_existe_film number(1);
+    Except_Util exception;
+
+BEGIN
+    v_email:=:email;
+    v_idfilm:=: idfilm;
+    v_note :=:note;
+
+    Select Count(*) into v_existe_film from film where idfilm = v_idfilm;
+    IF v_existe_film=1 THEN
+
+    ajout_internaute(v_email,v_idfilm,v_note);
+    maj_note(v_idfilm);
+        ELSE
+            Raise Except_Util;
+    END IF ;
+
+    exception
+    when dup_val_on_index then
+        DBMS_OUTPUT.PUT_LINE('Erreur : internaute existe déjà');
+    when Except_Util then
+        DBMS_OUTPUT.PUT_LINE('Erreur : idfilm inexistant');
+
+end;
+
+-- Vérification de l'ajout de la note
+select * from notation;
+
+--Vérification de la MàJ de la note moyenne dans film
+select * from film;
+
+
+
+--54
+Create or replace
+PROCEDURE ajout_film(p_idfilm out number ,p_titre VARCHAR2, p_date DATE ) is
+
+begin
+    Select MAX(idfilm)+1 into p_idfilm from film;
+    Insert into Film values (p_idfilm, p_titre, p_date,null,null,null,null,null);
+
+
+end;
+
+DECLARE
+    v_idfilm film.idfilm%type;
+    v_titre film.titre%type;
+    v_date film.datesortie%type;
+    v_existe_film number(1);
+    Except_Util exception;
+
+BEGIN
+
+    v_titre :=: titre;
+    v_date :=: datesortie;
+
+    SELECT Count(*) into v_existe_film FROM Film where v_titre = titre;
+    if v_existe_film =1 then
+         Raise Except_Util;
+    else
+        ajout_film(v_idfilm,v_titre,v_date);
+        DBMS_OUTPUT.PUT_LINE('Le film n°'||v_idfilm||' a ete ajoute');
+    end if;
+
+     exception
+    when Except_Util then
+        Select idfilm into v_idfilm from film where v_titre like titre;
+        DBMS_OUTPUT.PUT_LINE('Erreur : Film existe déjà' || ' n°' || v_idfilm);
+end;
+
+
+--55
+Create or replace
+FUNCTION verif_acteur(p_nom VARCHAR2, p_prenom VARCHAR2 ) return number
+    Is
+    v_existe number;
+    v_id number;
+ begin
+    Select count(*) into v_existe From Acteur where p_nom = nom and p_prenom=prenom;
+    if v_existe =1 then
+        select idacteur into v_id from acteur where p_nom=nom and p_prenom=prenom;
+
+        return v_id;
+    else
+
+        return 0;
+    end if;
+ end verif_acteur;
+
+
+
+
+DECLARE
+    v_nom acteur.nom%type;
+    v_prenom acteur.prenom%type;
+
+
+BEGIN
+    v_nom :=: nom;
+    v_prenom :=: prenom;
+
+    DBMS_output.put_line(verif_acteur(v_nom, v_prenom));
+end;
+
+
+
+--56
+Create or replace
+PROCEDURE ajout_act_casting(p_nom VARCHAR2, p_prenom VARCHAR2, p_id NUMBER, p_erreur out Number) is
+v_id number;
+v_create number;
+v_existe number(2);
+v_existe_film number;
+
+begin
+    p_erreur :=0;
+    v_existe := verif_acteur(p_nom, p_prenom);
+    select idfilm into v_existe_film from film where idfilm=p_id;
+    if(v_existe=0) then
+         select max(idacteur)+1 into v_create from acteur;
+            insert into acteur values (v_create, p_nom, p_prenom, null);
+            insert into jouer values (p_id, v_create);
+
+        else
+           select idacteur into v_id from acteur where nom=p_nom and prenom=p_prenom;
+            insert into Jouer VALUES (p_id, v_id );
+
+    end if;
+
+    exception
+    when no_data_found then
+    p_erreur:=1;
+    when dup_val_on_index then
+    p_erreur:=2;
+
+end;
+
+declare
+v_nom VARCHAR2(50);
+v_prenom VARCHAR2(50);
+v_id number;
+v_erreur number(1);
+
+
+begin
+v_id:=:idfilm;
+v_nom:=:nom;
+v_prenom:=:prenom;
+v_erreur :=0;
+
+ajout_act_casting(v_nom, v_prenom, v_id, v_erreur);
+
+if(v_erreur=0) then
+    DBMS_OUTPUT.PUT_LINE('Ajout effectue');
+    else if (v_erreur=1) then
+    DBMS_OUTPUT.PUT_LINE('Film inexistant');
+        else if(v_erreur=2) then
+        DBMS_OUTPUT.PUT_LINE('Deja affecte au film');
+        end if;
+    end if;
+end if;
+
+end;
+
+
+
+-------------------------------------VUES---------------------------------------------
+
+
+
+--1
+CREATE VIEW vcomedie AS
+    Select idfilm, titre, entree, paysfilm from film where genre like'%comédie%';
+
+select * from vcomedie;
+
+
+--2
+create view vfilm_note as
+    Select film.idfilm , titre, avg(note) note_moyenne, entree
+    from film inner join notation on film.idfilm = notation.idfilm
+    group by film.idfilm, titre, entree;
+
+select * from vfilm_note;
+
+
+--3
+SELECT * from vcomedie where entree>600000;
+
+
+--4
+Update vcomedie SET entree = 700000 where idfilm=13;
+
+select * from vcomedie;
+
+
+--5
+
+Update vfilm_note SET entree = 800000 where idfilm=13;
+
+select * from vfilm_note;
+
+/** Ne fonctionne pas car GROUP BY lors de la création de la vue /!\ **/
+
+
+--6
+create view film_usa as
+    select * from film where paysfilm='USA';
+
+select * from film_usa;
+
+--7
+insert into film_usa values (25,'Les trois frères, le retour', '12/02/2014', 'comédie', 106, 'France', NULL);
+
+--8
+select * from film_usa;
+select * from film;
+
+
+
+--9
+delete from film where idfilm=25;
+
+
+--10
+drop view film_usa;
+
+create view film_usa as
+    select * from film
+    where paysfilm='USA'
+with check option constraint check_film;
+
+
+--11
+
+insert into film_usa values (25,'Les trois frères, le retour', '12/02/2014', 'comédie', 106, 'France', NULL);
+
+/** WITH CHECK OPTION - violation de clause WHERE **/
+
+
+-------------------------------DROITS------------------------------------------
+
+--1
+
+CREATE TABLE Employe (
+    nom VARCHAR2(50),
+    prenom VARCHAR2(50),
+    departement number(1)
+);
+
+--2
+insert into Employe Values ('Phung', 'Corentin', 1);
+insert into Employe Values ('Wilt', 'Lilian', 1);
+
+--3
+COMMIT ;
+select * from employe;
+
+--4
+GRANT SELECT on Employe to lichacz2u with GRANT OPTION ;
+
+--5
+select * from LICHACZ2U.Employe;
+
+Rodriguez Pinto	Carla Irene	4
+Lichacz	Sarah	5
+---------------------------------------------
+Phung	Corentin	1
+Wilt	Lilian	1
+
+
+--6
+insert into LICHACZ2U.Employe values ('Wilt','Lilian',3);
+
+/** privilèges insuffisants **/
+
+--7
+GRANT UPDATE, INSERT on Employe to lichacz2u with GRANT OPTION ;
+
+--8 
+
+ça fonctionne

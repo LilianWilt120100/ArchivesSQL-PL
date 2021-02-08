@@ -1,0 +1,782 @@
+--Remarques--
+Problèmes pendant les vacances avec Oracle ou DataGrip 
+	--> au lancement d'une procédure ou d'une fonction un même message d'erreur :
+	"[2020-04-20 21:20:48] 1:119:PLS-00103: Symbole "" rencontré à la place d'un des symboles suivants :
+	 [2020-04-20 21:20:48] <identificateur> <identificateur entre guillemets> current
+	 [2020-04-20 21:20:48] Symbole "" n'a pas été pris en compte."
+	   nous a handicapé car les fonctions étaient inutilisables...
+
+--11,12,13
+
+create table photo(
+    numphoto varchar2(5) primary key ,
+    poids number(3,2),
+    titre varchar2(60),
+    dateprise DATE,
+    prix number(3),
+    pays varchar2(25),
+    numauteur varchar2(6),
+    foreign key (numauteur) references auteur(numauteur),
+    nbconsult number(3),
+    nomfichier varchar2(50),
+    numserie number(2),
+    foreign key (numserie) references serie(numserie),
+    numdansserie number(2)
+);
+
+create table serie(
+
+    numserie number(2) primary key ,
+    nomserie varchar2(75),
+    commentaire varchar2(75)
+
+);
+
+create table motcle(
+
+    nummot number(2) primary key ,
+    libmot varchar2(25)
+
+);
+
+create table correspond(
+    numphoto varchar2(5) ,
+    nummot number(2),
+    primary key (numphoto, nummot),
+    foreign key (numphoto) references photo(numphoto),
+    foreign key (nummot) references motcle(nummot)
+
+);
+
+create table auteur(
+    numauteur varchar2(6) primary key ,
+    nomaut varchar2(25),
+    pnomaut varchar2(25),
+    email varchar2(100),
+    statut varchar2(25)
+
+);
+
+create table agence(
+    nomagence varchar2(50) primary key,
+    adresse varchar2(60),
+    site varchar2(50)
+
+);
+
+create table contrat(
+    numauteur varchar2(6) ,
+    nomagence varchar2(50),
+    primary key (numauteur, nomagence),
+    foreign key (numauteur) references auteur(numauteur),
+    foreign key (nomagence) references agence(nomagence)
+
+);
+
+create table client(
+  numcli varchar2(6) primary key,
+  nom varchar2(50),
+  prenom varchar2(50),
+  ident varchar2(25),
+  mdp varchar2(10),
+  adresse varchar2(60),
+  cp varchar2(5),
+  ville varchar2(25),
+  rib varchar2(20)
+
+);
+
+create table achete(
+  numcli varchar2(6)  ,
+  numphoto varchar2(5) ,
+  dateachat DATE,
+  primary key(numcli, numphoto),
+  foreign key (numcli) references client(numcli),
+  foreign key (numphoto) references photo(numphoto)
+);
+
+create table debit(
+  numdeb number(2) primary key ,
+  numcli varchar2(6),
+  foreign key (numcli) references client(numcli),
+  montantHT number(4),
+  statutdebit varchar2(25),
+  datedebit date  
+);
+
+
+
+
+--21
+select distinct libmot from motcle
+              INNER JOIN correspond on motcle.nummot = correspond.nummot
+              INNER JOIN achete on correspond.numphoto = achete.numphoto
+Group By libmot, achete.numphoto
+HAVING Count(achete.numphoto) >4;
+
+
+culture
+cyclisme
+politique
+richesse
+sport
+technologie
+voyage
+écologie
+
+
+--22
+CREATE view VBilan_Client(nomcli, numcl, totalPhoto, montantTotal)
+as
+
+    SELECT distinct client.nom, achete.numcli, count(distinct numphoto) , 0
+    from client
+    inner join achete on client.numcli = achete.numcli
+    WHERE achete.numcli NOT IN (Select debit.numcli from debit)
+    group by client.nom, achete.numcli
+
+    UNION
+    SELECT distinct client.nom, debit.numcli, count(distinct numphoto) , sum(distinct montantHT)
+    from client
+    inner join achete on client.numcli = achete.numcli
+    inner join debit on achete.numcli = debit.numcli
+    group by client.nom, debit.numcli
+    order by numcli asc;
+
+
+select * from VBilan_Client;
+
+
+--23
+SELECT nomcli from VBilan_Client
+WHERE totalPhoto = (SELECT max(totalPhoto)  from VBilan_Client);
+
+Vigor
+
+
+--31
+Create or replace function motcle_photo (p_numphoto photo.numphoto%TYPE) return VARCHAR2
+is
+    cursor v_motcle (p_n photo.numphoto%TYPE) is
+    SELECT libmot from motcle
+    INNER JOIN correspond on motcle.nummot = correspond.nummot
+    inner join photo on correspond.numphoto = photo.numphoto
+    WHERE p_numphoto=photo.numphoto;
+
+v_mot varchar2(200);
+
+    BEGIN
+    for mot in v_motcle(p_numphoto) LOOP
+        v_mot:=v_mot||mot.libmot||',';
+        end loop;
+    if(v_mot != ' ') then
+       return v_mot;
+     else
+       return ('Aucun mot clé associé à cette photo');
+      end if;
+    end motcle_photo;
+
+
+----BLOC DE TEST--------
+
+
+DECLARE
+    v_numphoto photo.numphoto%TYPE;
+BEGIN
+    v_numphoto :=: numphoto;
+    DBMS_OUTPUT.PUT_LINE(motcle_photo(v_numphoto));
+end;
+
+
+
+--32
+CREATE or replace function trouver_agence (p_numaut auteur.nomaut%TYPE) return VARCHAR2
+is
+    v_adresse VARCHAR2(100);
+    v_nomagence VARCHAR2(100);
+    v_existe number(1);
+
+
+        begin
+            Select count(*) into v_existe
+            from auteur
+                inner join contrat on auteur.numauteur = contrat.numauteur
+                inner join agence on contrat.nomagence = agence.nomagence
+            where auteur.numauteur=p_numaut AND contrat.nomagence = agence.nomagence;
+
+            If v_existe=1 then
+                select agence.nomagence into v_nomagence from agence
+                    inner join contrat on agence.nomagence = contrat.nomagence
+                    inner join auteur on contrat.numauteur = auteur.numauteur
+                where numauteur=p_numaut AND contrat.nomagence = agence.nomagence;
+                select adresse into v_adresse from agence
+                    inner join contrat on agence.nomagence = contrat.nomagence
+                    inner join auteur on contrat.numauteur = auteur.numauteur
+                where numauteur=p_numaut AND contrat.nomagence = agence.nomagence;
+            else
+                return ('Sans Objet');
+            end if;
+            return (v_nomagence ||' '|| v_adresse);
+
+
+        end trouver_agence;
+
+----BLOC DE TEST--------------
+
+DECLARE
+    v_numaut auteur.numauteur%type;
+BEGIN
+    v_numaut:=:numauteur;
+    DBMS_OUTPUT.PUT_LINE(trouver_agence(v_numaut));
+END;
+
+
+--33
+
+create or replace procedure ajouterPhoto(p_numphoto in varchar, p_poids in number, p_titre in varchar, p_date in date, p_prix in number,
+                                         p_pays in varchar, p_numauteur in varchar , p_fichier in varchar, p_numserie in number, p_nomserie in varchar,
+                                         p_comm in varchar, p_bol boolean )
+IS
+v_Sexiste number(2);
+v_numser number(2);
+v_Pexiste number(2);
+v_max number(2);
+
+    BEGIN
+        select max(NUMSERIE) into v_numser from serie;
+        select count(*) into v_Pexiste from photo where numphoto=p_numphoto;
+        if(p_numserie != null) then
+            select count(*) into v_Sexiste from photo where NUMSERIE=p_numserie;
+            if(v_Sexiste !=0 ) then
+
+                if(v_Pexiste != 0) then
+                    p_bol := false;
+                else
+                    insert into serie VALUES (v_numser+1, p_nomserie, p_comm);
+                    insert into photo VALUES (p_numphoto, p_poids, p_titre, p_date, p_prix, p_pays, p_numauteur,0,p_fichier, p_numserie,1 );
+                    p_bol:=true;
+                end if;
+            else
+                select max(NUMDANSSERIE) into v_max from PHOTO where NUMSERIE=p_numserie;
+                if(v_Pexiste != 0) then
+                    p_bol := false;
+                else
+                    insert into photo VALUES (p_numphoto, p_poids, p_titre, p_date, p_prix, p_pays, p_numauteur, 0, p_fichier, p_numserie, v_max+1);
+                    p_bol:=true;
+                end if;
+            end if;
+        else
+            if(v_Pexiste != 0) then
+                p_bol:=false;
+            else
+                insert into photo Values (p_numphoto, p_poids, p_titre, p_date, p_prix, p_pays, p_numauteur, 0, p_fichier, p_numserie, v_max+1);
+                p_bol:=true;
+            end if;
+    end if;
+        DBMS_OUTPUT.put_line(p_bol);
+    end;
+
+--34
+create or replace procedure CalculDebit(p_numcl varchar2, p_mois number, p_annee number) IS
+v_mont number(10,2);
+v_dateA date;
+v_dateB date;
+v_max number(3);
+    
+    begin
+        select count(*) into v_max from debit;
+        if(p_mois != 01) then
+            v_dateA = to_date('15/' || to_char(p_mois ) || '/' || to_char(p_annee));
+            v_dateB = to_date('15/' || to_char(p_mois -1) || '/' || to_char(p_annee));
+        else
+             v_dateA = to_date('15/' || to_char(p_mois ) || '/' || to_char(p_annee));
+            v_dateB = to_date('15/' || '12' || '/' || to_char(p_annee-1));
+        end if;
+        
+        select Sum(prix) into v_mont from photo
+        inner join achete on photo.numphoto = achete.numphoto
+        where dateachat < v_dateA and dateachat > v_dateB and numcli = p_numcl;
+        
+        if(v_mont!=0) then
+            insert into debit values (v_max, p_numcl, v_mont, 'en cours', v_dateA);
+        end if;
+    end;
+
+--41
+
+
+import java.sql.*;
+import java.io.*;
+
+public class Q41 {
+	public static void main(String [] args) throws Exception {
+		String url = "jdbc:oracle:thin:@localhost:1521:XE";
+		Connection cnt = DriverManager.getConnection(url,"SYSTEM", "Lilian120100");
+		PreparedStatement auteur = cnt.prepareStatement("SELECT nomaut, numauteur FROM Auteur order by nomaut");
+		PreparedStatement photo = cnt.prepareStatement("Select numphoto, titre, to_char(dateprise, 'DD/MM/YYYY'), prix, pays from photo");
+		CallableStatement a = cnt.prepareCall("{? = call trouverAgence(?) }");
+		CallableStatement b = cnt.prepareCall("{? = call motcle_photo(?) }");
+		
+		a.registerOutParameter(1, Types.VARCHAR, 40);
+		b.registerOutParameter(1, Types.VARCHAR, 400);
+	
+		ResultSet rs = auteur.executeQuery();
+		
+		String num;
+		String ag;
+		
+		while (rs.next()) {
+		num = rs.getString(2);
+		a.setString(2, num);
+		a.execute();
+		ag=a.getString(1);
+		if(ag.equals("Sans Objet")) {
+			System.out.println("Nom photographe :"+rs.getString(1));
+		}else {
+			System.out.println("Nom photographe :" + rs.getString(1)+","+ a.getString(1));
+		} 
+		
+		photo.setString(1,num);
+		ResultSet rs2 = photo.executeQuery();
+		while(rs2.next()) {
+			System.out.println("\t"+ rs2.getString(1)+" "+ rs2.getString(2)+" "+ rs2.getString(3)+" "+ rs2.getString(4)+" "+rs2.getString(5));
+			b.setString(2, rs2.getString(1));
+			b.execute();
+			System.out.println("\t"+"\t"+ b.getString(1));
+		}
+
+	}
+		auteur.close();
+		photo.close();
+		rs.close();
+		cnt.close();
+	}
+	
+}
+
+-----
+
+Nom photographe :Davilow
+	P0001 Le palais ducal 12/01/2016 14 Italie
+		voyage,artiste,
+	P0002 Voyage au Palais Pitti 13/01/2016 34 Italie
+		mer,planète,
+	P0003 Les gondoles venitiennes 14/01/2016 64 Italie
+		nature,montagne,
+	P0004 Piazza San Marco 15/01/2016 123 Italie
+		artiste,culture,
+	P0005 planete 22/11/2014 3 Canada
+		nature,écologie,
+	P0006 transport 23/11/2014 64 USA
+		cyclisme,sport,
+	P0007 pêche 03/05/2017 76 Japon
+		mer,nature,
+	P0008 tradition 04/05/2017 98 Portugal
+		artiste,culture,
+	P0009 pacifiste 05/05/2016 13 Danemark
+		culture,politique,
+	P0010 bibliothèque 14/04/2017 87 Egypte
+		richesse,culture,
+	P0011 monument 23/10/2016 76 Maroc
+		voyage,culture,
+	P0012 bureau 16/08/2016 71 Espagne
+		voyage,politique,
+	P0013 avion 17/08/2015 453 Espagne
+		écologie,sport,
+	P0014 route 18/08/2015 5 Espagne
+		écologie,sport,
+	P0015 voiture 19/08/2014 74 Espagne
+		écologie,sport,
+	P0016 ordinateur 17/09/2017 9 France
+		technologie,
+	P0017 telephone 18/09/2017 74 USA
+		technologie,culture,
+	P0018 collection 15/05/2017 56 Japon
+		artiste,richesse,
+	P0019 mer 16/05/2016 55 chine
+		planète,nature,
+	P0020 volcan 17/05/2015 22 Hawaii
+		planète,montagne,
+	P0040 photo série existante 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0045 photo nouvelle série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0035 photo sans série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+Nom photographe :Decours
+	P0001 Le palais ducal 12/01/2016 14 Italie
+		voyage,artiste,
+	P0002 Voyage au Palais Pitti 13/01/2016 34 Italie
+		mer,planète,
+	P0003 Les gondoles venitiennes 14/01/2016 64 Italie
+		nature,montagne,
+	P0004 Piazza San Marco 15/01/2016 123 Italie
+		artiste,culture,
+	P0005 planete 22/11/2014 3 Canada
+		nature,écologie,
+	P0006 transport 23/11/2014 64 USA
+		cyclisme,sport,
+	P0007 pêche 03/05/2017 76 Japon
+		mer,nature,
+	P0008 tradition 04/05/2017 98 Portugal
+		artiste,culture,
+	P0009 pacifiste 05/05/2016 13 Danemark
+		culture,politique,
+	P0010 bibliothèque 14/04/2017 87 Egypte
+		richesse,culture,
+	P0011 monument 23/10/2016 76 Maroc
+		voyage,culture,
+	P0012 bureau 16/08/2016 71 Espagne
+		voyage,politique,
+	P0013 avion 17/08/2015 453 Espagne
+		écologie,sport,
+	P0014 route 18/08/2015 5 Espagne
+		écologie,sport,
+	P0015 voiture 19/08/2014 74 Espagne
+		écologie,sport,
+	P0016 ordinateur 17/09/2017 9 France
+		technologie,
+	P0017 telephone 18/09/2017 74 USA
+		technologie,culture,
+	P0018 collection 15/05/2017 56 Japon
+		artiste,richesse,
+	P0019 mer 16/05/2016 55 chine
+		planète,nature,
+	P0020 volcan 17/05/2015 22 Hawaii
+		planète,montagne,
+	P0040 photo série existante 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0045 photo nouvelle série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0035 photo sans série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+Nom photographe :Dupars
+	P0001 Le palais ducal 12/01/2016 14 Italie
+		voyage,artiste,
+	P0002 Voyage au Palais Pitti 13/01/2016 34 Italie
+		mer,planète,
+	P0003 Les gondoles venitiennes 14/01/2016 64 Italie
+		nature,montagne,
+	P0004 Piazza San Marco 15/01/2016 123 Italie
+		artiste,culture,
+	P0005 planete 22/11/2014 3 Canada
+		nature,écologie,
+	P0006 transport 23/11/2014 64 USA
+		cyclisme,sport,
+	P0007 pêche 03/05/2017 76 Japon
+		mer,nature,
+	P0008 tradition 04/05/2017 98 Portugal
+		artiste,culture,
+	P0009 pacifiste 05/05/2016 13 Danemark
+		culture,politique,
+	P0010 bibliothèque 14/04/2017 87 Egypte
+		richesse,culture,
+	P0011 monument 23/10/2016 76 Maroc
+		voyage,culture,
+	P0012 bureau 16/08/2016 71 Espagne
+		voyage,politique,
+	P0013 avion 17/08/2015 453 Espagne
+		écologie,sport,
+	P0014 route 18/08/2015 5 Espagne
+		écologie,sport,
+	P0015 voiture 19/08/2014 74 Espagne
+		écologie,sport,
+	P0016 ordinateur 17/09/2017 9 France
+		technologie,
+	P0017 telephone 18/09/2017 74 USA
+		technologie,culture,
+	P0018 collection 15/05/2017 56 Japon
+		artiste,richesse,
+	P0019 mer 16/05/2016 55 chine
+		planète,nature,
+	P0020 volcan 17/05/2015 22 Hawaii
+		planète,montagne,
+	P0040 photo série existante 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0045 photo nouvelle série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0035 photo sans série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+Nom photographe :Ledoux,Synthèse et Médias 5 rue Roussin 75015 PARIS
+	P0001 Le palais ducal 12/01/2016 14 Italie
+		voyage,artiste,
+	P0002 Voyage au Palais Pitti 13/01/2016 34 Italie
+		mer,planète,
+	P0003 Les gondoles venitiennes 14/01/2016 64 Italie
+		nature,montagne,
+	P0004 Piazza San Marco 15/01/2016 123 Italie
+		artiste,culture,
+	P0005 planete 22/11/2014 3 Canada
+		nature,écologie,
+	P0006 transport 23/11/2014 64 USA
+		cyclisme,sport,
+	P0007 pêche 03/05/2017 76 Japon
+		mer,nature,
+	P0008 tradition 04/05/2017 98 Portugal
+		artiste,culture,
+	P0009 pacifiste 05/05/2016 13 Danemark
+		culture,politique,
+	P0010 bibliothèque 14/04/2017 87 Egypte
+		richesse,culture,
+	P0011 monument 23/10/2016 76 Maroc
+		voyage,culture,
+	P0012 bureau 16/08/2016 71 Espagne
+		voyage,politique,
+	P0013 avion 17/08/2015 453 Espagne
+		écologie,sport,
+	P0014 route 18/08/2015 5 Espagne
+		écologie,sport,
+	P0015 voiture 19/08/2014 74 Espagne
+		écologie,sport,
+	P0016 ordinateur 17/09/2017 9 France
+		technologie,
+	P0017 telephone 18/09/2017 74 USA
+		technologie,culture,
+	P0018 collection 15/05/2017 56 Japon
+		artiste,richesse,
+	P0019 mer 16/05/2016 55 chine
+		planète,nature,
+	P0020 volcan 17/05/2015 22 Hawaii
+		planète,montagne,
+	P0040 photo série existante 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0045 photo nouvelle série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0035 photo sans série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+Nom photographe :Martin,Biosphoto 8 rue de la convention 75015 PARIS
+	P0001 Le palais ducal 12/01/2016 14 Italie
+		voyage,artiste,
+	P0002 Voyage au Palais Pitti 13/01/2016 34 Italie
+		mer,planète,
+	P0003 Les gondoles venitiennes 14/01/2016 64 Italie
+		nature,montagne,
+	P0004 Piazza San Marco 15/01/2016 123 Italie
+		artiste,culture,
+	P0005 planete 22/11/2014 3 Canada
+		nature,écologie,
+	P0006 transport 23/11/2014 64 USA
+		cyclisme,sport,
+	P0007 pêche 03/05/2017 76 Japon
+		mer,nature,
+	P0008 tradition 04/05/2017 98 Portugal
+		artiste,culture,
+	P0009 pacifiste 05/05/2016 13 Danemark
+		culture,politique,
+	P0010 bibliothèque 14/04/2017 87 Egypte
+		richesse,culture,
+	P0011 monument 23/10/2016 76 Maroc
+		voyage,culture,
+	P0012 bureau 16/08/2016 71 Espagne
+		voyage,politique,
+	P0013 avion 17/08/2015 453 Espagne
+		écologie,sport,
+	P0014 route 18/08/2015 5 Espagne
+		écologie,sport,
+	P0015 voiture 19/08/2014 74 Espagne
+		écologie,sport,
+	P0016 ordinateur 17/09/2017 9 France
+		technologie,
+	P0017 telephone 18/09/2017 74 USA
+		technologie,culture,
+	P0018 collection 15/05/2017 56 Japon
+		artiste,richesse,
+	P0019 mer 16/05/2016 55 chine
+		planète,nature,
+	P0020 volcan 17/05/2015 22 Hawaii
+		planète,montagne,
+	P0040 photo série existante 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0045 photo nouvelle série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0035 photo sans série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+Nom photographe :Picard,Presse Magazine 60 rue Caumartin 75009 PARIS
+	P0001 Le palais ducal 12/01/2016 14 Italie
+		voyage,artiste,
+	P0002 Voyage au Palais Pitti 13/01/2016 34 Italie
+		mer,planète,
+	P0003 Les gondoles venitiennes 14/01/2016 64 Italie
+		nature,montagne,
+	P0004 Piazza San Marco 15/01/2016 123 Italie
+		artiste,culture,
+	P0005 planete 22/11/2014 3 Canada
+		nature,écologie,
+	P0006 transport 23/11/2014 64 USA
+		cyclisme,sport,
+	P0007 pêche 03/05/2017 76 Japon
+		mer,nature,
+	P0008 tradition 04/05/2017 98 Portugal
+		artiste,culture,
+	P0009 pacifiste 05/05/2016 13 Danemark
+		culture,politique,
+	P0010 bibliothèque 14/04/2017 87 Egypte
+		richesse,culture,
+	P0011 monument 23/10/2016 76 Maroc
+		voyage,culture,
+	P0012 bureau 16/08/2016 71 Espagne
+		voyage,politique,
+	P0013 avion 17/08/2015 453 Espagne
+		écologie,sport,
+	P0014 route 18/08/2015 5 Espagne
+		écologie,sport,
+	P0015 voiture 19/08/2014 74 Espagne
+		écologie,sport,
+	P0016 ordinateur 17/09/2017 9 France
+		technologie,
+	P0017 telephone 18/09/2017 74 USA
+		technologie,culture,
+	P0018 collection 15/05/2017 56 Japon
+		artiste,richesse,
+	P0019 mer 16/05/2016 55 chine
+		planète,nature,
+	P0020 volcan 17/05/2015 22 Hawaii
+		planète,montagne,
+	P0040 photo série existante 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0045 photo nouvelle série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0035 photo sans série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+Nom photographe :Rivanau,OBJECTIF UNE 172 rue Duguesclin 69003 LYON
+	P0001 Le palais ducal 12/01/2016 14 Italie
+		voyage,artiste,
+	P0002 Voyage au Palais Pitti 13/01/2016 34 Italie
+		mer,planète,
+	P0003 Les gondoles venitiennes 14/01/2016 64 Italie
+		nature,montagne,
+	P0004 Piazza San Marco 15/01/2016 123 Italie
+		artiste,culture,
+	P0005 planete 22/11/2014 3 Canada
+		nature,écologie,
+	P0006 transport 23/11/2014 64 USA
+		cyclisme,sport,
+	P0007 pêche 03/05/2017 76 Japon
+		mer,nature,
+	P0008 tradition 04/05/2017 98 Portugal
+		artiste,culture,
+	P0009 pacifiste 05/05/2016 13 Danemark
+		culture,politique,
+	P0010 bibliothèque 14/04/2017 87 Egypte
+		richesse,culture,
+	P0011 monument 23/10/2016 76 Maroc
+		voyage,culture,
+	P0012 bureau 16/08/2016 71 Espagne
+		voyage,politique,
+	P0013 avion 17/08/2015 453 Espagne
+		écologie,sport,
+	P0014 route 18/08/2015 5 Espagne
+		écologie,sport,
+	P0015 voiture 19/08/2014 74 Espagne
+		écologie,sport,
+	P0016 ordinateur 17/09/2017 9 France
+		technologie,
+	P0017 telephone 18/09/2017 74 USA
+		technologie,culture,
+	P0018 collection 15/05/2017 56 Japon
+		artiste,richesse,
+	P0019 mer 16/05/2016 55 chine
+		planète,nature,
+	P0020 volcan 17/05/2015 22 Hawaii
+		planète,montagne,
+	P0040 photo série existante 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0045 photo nouvelle série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0035 photo sans série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+Nom photographe :Vanier,Biosphoto 8 rue de la convention 75015 PARIS
+	P0001 Le palais ducal 12/01/2016 14 Italie
+		voyage,artiste,
+	P0002 Voyage au Palais Pitti 13/01/2016 34 Italie
+		mer,planète,
+	P0003 Les gondoles venitiennes 14/01/2016 64 Italie
+		nature,montagne,
+	P0004 Piazza San Marco 15/01/2016 123 Italie
+		artiste,culture,
+	P0005 planete 22/11/2014 3 Canada
+		nature,écologie,
+	P0006 transport 23/11/2014 64 USA
+		cyclisme,sport,
+	P0007 pêche 03/05/2017 76 Japon
+		mer,nature,
+	P0008 tradition 04/05/2017 98 Portugal
+		artiste,culture,
+	P0009 pacifiste 05/05/2016 13 Danemark
+		culture,politique,
+	P0010 bibliothèque 14/04/2017 87 Egypte
+		richesse,culture,
+	P0011 monument 23/10/2016 76 Maroc
+		voyage,culture,
+	P0012 bureau 16/08/2016 71 Espagne
+		voyage,politique,
+	P0013 avion 17/08/2015 453 Espagne
+		écologie,sport,
+	P0014 route 18/08/2015 5 Espagne
+		écologie,sport,
+	P0015 voiture 19/08/2014 74 Espagne
+		écologie,sport,
+	P0016 ordinateur 17/09/2017 9 France
+		technologie,
+	P0017 telephone 18/09/2017 74 USA
+		technologie,culture,
+	P0018 collection 15/05/2017 56 Japon
+		artiste,richesse,
+	P0019 mer 16/05/2016 55 chine
+		planète,nature,
+	P0020 volcan 17/05/2015 22 Hawaii
+		planète,montagne,
+	P0040 photo série existante 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0045 photo nouvelle série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0035 photo sans série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+Nom photographe :Vigard
+	P0001 Le palais ducal 12/01/2016 14 Italie
+		voyage,artiste,
+	P0002 Voyage au Palais Pitti 13/01/2016 34 Italie
+		mer,planète,
+	P0003 Les gondoles venitiennes 14/01/2016 64 Italie
+		nature,montagne,
+	P0004 Piazza San Marco 15/01/2016 123 Italie
+		artiste,culture,
+	P0005 planete 22/11/2014 3 Canada
+		nature,écologie,
+	P0006 transport 23/11/2014 64 USA
+		cyclisme,sport,
+	P0007 pêche 03/05/2017 76 Japon
+		mer,nature,
+	P0008 tradition 04/05/2017 98 Portugal
+		artiste,culture,
+	P0009 pacifiste 05/05/2016 13 Danemark
+		culture,politique,
+	P0010 bibliothèque 14/04/2017 87 Egypte
+		richesse,culture,
+	P0011 monument 23/10/2016 76 Maroc
+		voyage,culture,
+	P0012 bureau 16/08/2016 71 Espagne
+		voyage,politique,
+	P0013 avion 17/08/2015 453 Espagne
+		écologie,sport,
+	P0014 route 18/08/2015 5 Espagne
+		écologie,sport,
+	P0015 voiture 19/08/2014 74 Espagne
+		écologie,sport,
+	P0016 ordinateur 17/09/2017 9 France
+		technologie,
+	P0017 telephone 18/09/2017 74 USA
+		technologie,culture,
+	P0018 collection 15/05/2017 56 Japon
+		artiste,richesse,
+	P0019 mer 16/05/2016 55 chine
+		planète,nature,
+	P0020 volcan 17/05/2015 22 Hawaii
+		planète,montagne,
+	P0040 photo série existante 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0045 photo nouvelle série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+	P0035 photo sans série 20/05/2020 15 France
+		Aucun mot clé associé à cette photo
+
